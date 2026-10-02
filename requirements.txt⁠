@@ -1,0 +1,5 @@
+Flask
+Flask-SocketIO
+groq
+gunicorn
+eventlet

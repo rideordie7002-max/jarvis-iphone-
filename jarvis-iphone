@@ -1,0 +1,41 @@
+import os
+from flask import Flask, render_template
+from flask_socketio import SocketIO, emit
+from groq import Groq
+
+app = Flask(__name__)
+socketio = SocketIO(app, cors_allowed_origins="*")
+
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+")
+client_groq = Groq(api_key=GROQ_API_KEY)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@socketio.on('user_message')
+def handle_message(data):
+    testo_utente = data.get('text', '')
+    if not testo_utente:
+        return
+
+    try:
+        response = client_groq.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Sei J.A.R.V.I.S., l'assistente di Iron Man. Rispondi in italiano in modo formale, brillante e conciso. Chiama l'utente 'Dawid'."
+                },
+                {"role": "user", "content": testo_utente}
+            ],
+            model="llama-3.3-70b-versatile",
+        )
+        risposta = response.choices[0].message.content
+        emit('jarvis_response', {'text': risposta})
+    except Exception as e:
+        emit('jarvis_response', {'text': f"Spiacente Dawid, errore: {e}"})
+
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5000))
+    socketio.run(app, host='0.0.0.0', port=port)

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J.A.R.V.I.S.</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        body {
+            background-color: #050811;
+            color: #00f0ff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .arc-reactor {
+            position: relative;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            border: 4px solid #00f0ff;
+            box-shadow: 0 0 30px #00f0ff, inset 0 0 30px #00f0ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: pulse 2s infinite alternate;
+            cursor: pointer;
+        }
+
+        .core {
+            width: 80px;
+            height: 80px;
+            background: #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 0 40px #ffffff, 0 0 80px #00f0ff;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.98); box-shadow: 0 0 20px #00f0ff; }
+            100% { transform: scale(1.02); box-shadow: 0 0 50px #00f0ff; }
+        }
+
+        .speaking {
+            animation: speak-anim 0.5s infinite alternate !important;
+        }
+
+        @keyframes speak-anim {
+            0% { transform: scale(1); box-shadow: 0 0 30px #00f0ff; }
+            100% { transform: scale(1.15); box-shadow: 0 0 80px #00f0ff; }
+        }
+
+        #status {
+            margin-top: 30px;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        #btn-mic {
+            margin-top: 20px;
+            padding: 12px 24px;
+            background: transparent;
+            border: 2px solid #00f0ff;
+            color: #00f0ff;
+            font-size: 1rem;
+            border-radius: 20px;
+            cursor: pointer;
+            box-shadow: 0 0 10px #00f0ff;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="arc-reactor" id="reactor" onclick="startListening()">
+        <div class="core"></div>
+    </div>
+
+    <div id="status">Tocca il reattore per parlare</div>
+    <button id="btn-mic" onclick="startListening()">Attiva Microfono</button>
+
+    <script>
+        const socket = io();
+        const statusDiv = document.getElementById('status');
+        const reactor = document.getElementById('reactor');
+
+        const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition;
+
+        if (Recognition) {
+            recognition = new Recognition();
+            recognition.lang = 'it-IT';
+            recognition.interimResults = false;
+
+            recognition.onstart = () => {
+                statusDiv.innerText = "Ascolto in corso...";
+            };
+
+            recognition.onresult = (event) => {
+                const text = event.results[0][0].transcript;
+                statusDiv.innerText = "Elaborazione: " + text;
+                socket.emit('user_message', { text: text });
+            };
+
+            recognition.onerror = (e) => {
+                statusDiv.innerText = "Errore: " + e.error;
+            };
+        } else {
+            statusDiv.innerText = "Riconoscimento vocale non supportato su questo browser.";
+        }
+
+        function startListening() {
+            if (recognition) {
+                recognition.start();
+            }
+        }
+
+        socket.on('jarvis_response', (data) => {
+            statusDiv.innerText = data.text;
+            speak(data.text);
+        });
+
+        function speak(text) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'it-IT';
+            utterance.rate = 1.0;
+            
+            utterance.onstart = () => reactor.classList.add('speaking');
+            utterance.onend = () => reactor.classList.remove('speaking');
+
+            window.speechSynthesis.speak(utterance);
+        }
+    </script>
+</body>
+</html>
